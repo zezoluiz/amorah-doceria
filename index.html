@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amorah Doceria — Gestão</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--rosa-escuro:#c4597a;--rosa:#e07a9a;--rosa-claro:#f4b8cb;--rosa-palido:#fde8ef;--rosa-fundo:#fff5f8;--marrom:#6b3a4a;--marrom-claro:#9c6070;--cinza:#6b7280;--verde:#4caf85;--verde-claro:#e8f5ef;--amarelo:#f0b429;--amarelo-claro:#fef9eb;--vermelho:#e05c5c;--vermelho-claro:#fdeaea;--sombra:0 2px 16px rgba(196,89,122,0.10);--sombra-hover:0 6px 28px rgba(196,89,122,0.18);--raio:16px;--raio-sm:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--rosa-fundo);color:#2d1a22;min-height:100vh}
+
+/* ── AUTH SCREEN ── */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#fde8ef 0%,#fff5f8 50%,#fde8ef 100%)}
+.auth-card{background:white;border-radius:24px;padding:40px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(196,89,122,0.15)}
+.auth-logo{text-align:center;margin-bottom:32px}
+.auth-logo .icon{font-size:48px;display:block;margin-bottom:12px}
+.auth-logo h1{font-family:'Playfair Display',serif;font-size:28px;color:var(--marrom);font-style:italic}
+.auth-logo p{font-size:12px;color:var(--cinza);letter-spacing:2px;text-transform:uppercase;margin-top:4px}
+.auth-tabs{display:flex;background:var(--rosa-fundo);border-radius:10px;padding:4px;margin-bottom:24px}
+.auth-tab{flex:1;padding:9px;text-align:center;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:var(--cinza);transition:all .2s;border:none;background:none;font-family:'DM Sans',sans-serif}
+.auth-tab.active{background:white;color:var(--rosa-escuro);box-shadow:0 2px 8px rgba(196,89,122,0.12)}
+.auth-error{background:var(--vermelho-claro);color:var(--vermelho);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none}
+.auth-error.show{display:block}
+.auth-success{background:var(--verde-claro);color:#2e6b4f;border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none}
+.auth-success.show{display:block}
+
+/* ── APP ── */
+#app-screen{display:none;min-height:100vh;display:none}
+#app-screen.show{display:flex}
+.sidebar{width:240px;min-height:100vh;background:linear-gradient(160deg,#c4597a 0%,#a0425f 100%);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:100;box-shadow:4px 0 24px rgba(196,89,122,0.18)}
+.logo{padding:24px 24px 18px;border-bottom:1px solid rgba(255,255,255,0.15)}
+.logo h1{font-family:'Playfair Display',serif;font-size:22px;color:white;line-height:1.2;font-style:italic}
+.logo span{font-size:11px;color:rgba(255,255,255,0.7);letter-spacing:2px;text-transform:uppercase;display:block;margin-top:4px}
+.logo-icon{font-size:26px;margin-bottom:6px;display:block}
+.user-bar{padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.user-email{font-size:11px;color:rgba(255,255,255,0.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.btn-logout{background:rgba(255,255,255,0.15);border:none;border-radius:6px;padding:4px 10px;font-size:11px;color:white;cursor:pointer;transition:.2s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.btn-logout:hover{background:rgba(255,255,255,0.25)}
+nav{padding:12px 0;flex:1}
+.nav-section{padding:8px 16px 4px;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,0.45);font-weight:600;margin-top:6px}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 20px;cursor:pointer;color:rgba(255,255,255,0.8);font-size:14px;transition:all .2s;border-left:3px solid transparent;margin:1px 0}
+.nav-item:hover{background:rgba(255,255,255,0.12);color:white}
+.nav-item.active{background:rgba(255,255,255,0.18);color:white;border-left-color:white;font-weight:500}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.sidebar-footer{padding:12px 16px;border-top:1px solid rgba(255,255,255,0.15);font-size:11px;color:rgba(255,255,255,0.4);text-align:center}
+#sync-status{margin-bottom:2px;min-height:13px;color:rgba(255,255,255,0.6)}
+.main{margin-left:240px;flex:1;padding:28px 32px;min-height:100vh}
+.page{display:none;animation:fadeIn .3s}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── COMPONENTS ── */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-title{font-family:'Playfair Display',serif;font-size:26px;color:var(--marrom);font-weight:600}
+.page-subtitle{font-size:13px;color:var(--cinza);margin-top:2px}
+.btn{padding:9px 18px;border-radius:var(--raio-sm);border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:7px}
+.btn-primary{background:linear-gradient(135deg,var(--rosa-escuro),#a0425f);color:white;box-shadow:0 4px 14px rgba(196,89,122,0.35)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(196,89,122,0.45)}
+.btn-secondary{background:white;color:var(--rosa-escuro);border:1.5px solid var(--rosa-claro)}
+.btn-secondary:hover{background:var(--rosa-palido)}
+.btn-danger{background:var(--vermelho-claro);color:var(--vermelho);border:none}
+.btn-sm{padding:5px 12px;font-size:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:white;border-radius:var(--raio);padding:18px;box-shadow:var(--sombra);position:relative;overflow:hidden;transition:box-shadow .2s}
+.stat-card:hover{box-shadow:var(--sombra-hover)}
+.stat-card::before{content:'';position:absolute;top:0;right:0;width:72px;height:72px;border-radius:0 0 0 72px;opacity:.08}
+.stat-card.rosa::before{background:var(--rosa-escuro)}.stat-card.verde::before{background:var(--verde)}.stat-card.amarelo::before{background:var(--amarelo)}.stat-card.marrom::before{background:var(--marrom)}
+.stat-icon{font-size:20px;margin-bottom:10px}.stat-label{font-size:11px;color:var(--cinza);text-transform:uppercase;letter-spacing:.8px;font-weight:500;margin-bottom:4px}
+.stat-value{font-size:24px;font-weight:600;color:var(--marrom);font-family:'Playfair Display',serif}
+.stat-change{font-size:12px;margin-top:3px;font-weight:500;color:var(--cinza)}
+.card{background:white;border-radius:var(--raio);padding:22px;box-shadow:var(--sombra);margin-bottom:18px}
+.card-title{font-family:'Playfair Display',serif;font-size:17px;color:var(--marrom);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:18px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+label{font-size:12px;font-weight:500;color:var(--marrom-claro)}
+input,select,textarea{padding:9px 13px;border:1.5px solid #f0d5dc;border-radius:var(--raio-sm);font-family:'DM Sans',sans-serif;font-size:14px;background:white;color:#2d1a22;transition:border-color .2s,box-shadow .2s;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--rosa);box-shadow:0 0 0 3px rgba(224,122,154,.12)}
+textarea{resize:vertical;min-height:72px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 14px;background:var(--rosa-fundo);color:var(--marrom);font-weight:600;font-size:12px;border-bottom:2px solid var(--rosa-palido)}
+td{padding:10px 14px;border-bottom:1px solid #fef0f4;color:#3d2030;vertical-align:middle}
+tr:hover td{background:#fff8fa}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-rosa{background:var(--rosa-palido);color:var(--rosa-escuro)}.badge-verde{background:var(--verde-claro);color:#2e7d5e}.badge-vermelho{background:var(--vermelho-claro);color:var(--vermelho)}.badge-amarelo{background:var(--amarelo-claro);color:#8a6500}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(45,26,34,.45);z-index:200;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+.modal-overlay.open{display:flex}
+.modal{background:white;border-radius:20px;padding:28px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(45,26,34,.25);animation:modalIn .25s ease}
+@keyframes modalIn{from{transform:scale(.95) translateY(10px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.modal-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--marrom)}
+.modal-close{background:var(--rosa-fundo);border:none;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:18px;color:var(--cinza);display:flex;align-items:center;justify-content:center;transition:.2s}
+.modal-close:hover{background:var(--rosa-palido)}
+.ingrediente-linha{display:grid;grid-template-columns:1fr 88px 100px 96px auto;gap:7px;align-items:center;margin-bottom:8px}
+.un-hint{font-size:10px;color:var(--cinza);margin-top:2px;text-align:center}
+.custo-tag{background:var(--rosa-palido);color:var(--rosa-escuro);padding:4px 8px;border-radius:7px;font-size:12px;font-weight:600;white-space:nowrap;text-align:center}
+.pagamento-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:12px;margin-bottom:18px}
+.pagamento-card{background:var(--rosa-fundo);border:1.5px solid var(--rosa-palido);border-radius:var(--raio-sm);padding:12px;transition:.2s}
+.pagamento-card:focus-within{border-color:var(--rosa);background:white}
+.pagamento-card label{font-size:11px;display:flex;align-items:center;gap:5px;margin-bottom:7px;color:var(--marrom)}
+.pagamento-card input{border:none;background:transparent;padding:0;font-size:17px;font-weight:600;color:var(--rosa-escuro);width:100%}
+.pagamento-card input:focus{box-shadow:none}
+.summary-box{background:linear-gradient(135deg,var(--rosa-escuro),#a0425f);color:white;border-radius:var(--raio);padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:16px;margin-bottom:18px}
+.summary-item label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.65);font-weight:500}
+.summary-item .val{font-family:'Playfair Display',serif;font-size:20px;font-weight:600;color:white;margin-top:3px}
+.progress-bar{background:var(--rosa-fundo);border-radius:20px;height:7px;overflow:hidden;margin-top:7px}
+.progress-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--rosa),var(--rosa-escuro));transition:width .5s ease}
+.tabs{display:flex;gap:3px;margin-bottom:20px;background:var(--rosa-fundo);padding:4px;border-radius:11px;width:fit-content}
+.tab{padding:7px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;color:var(--cinza);transition:all .2s;border:none;background:none;font-family:'DM Sans',sans-serif}
+.tab.active{background:white;color:var(--rosa-escuro);box-shadow:0 2px 8px rgba(196,89,122,.12)}
+.empty-state{text-align:center;padding:40px 20px;color:var(--cinza)}
+.empty-state .icon{font-size:40px;margin-bottom:10px;opacity:.5}
+.empty-state h3{font-size:15px;color:var(--marrom-claro);margin-bottom:5px}
+.bar-chart{display:flex;align-items:flex-end;gap:6px;height:110px;padding-top:10px}
+.bar-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar{width:100%;border-radius:5px 5px 0 0;background:linear-gradient(180deg,var(--rosa-claro),var(--rosa-escuro));min-height:3px}
+.bar-label{font-size:10px;color:var(--cinza)}.bar-val{font-size:9px;font-weight:600;color:var(--rosa-escuro)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}}
+.alert{border-radius:var(--raio-sm);padding:10px 14px;font-size:12px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.alert-warning{background:var(--amarelo-claro);color:#7a5500;border-left:3px solid var(--amarelo)}
+.alert-success{background:var(--verde-claro);color:#2e6b4f;border-left:3px solid var(--verde)}
+.alert-danger{background:var(--vermelho-claro);color:#822;border-left:3px solid var(--vermelho)}
+.divider{border:none;border-top:1.5px solid var(--rosa-palido);margin:16px 0}
+.text-rosa{color:var(--rosa-escuro)}.text-verde{color:var(--verde)}.text-muted{color:var(--cinza);font-size:13px}.fw-600{font-weight:600}.mt-12{margin-top:12px}
+.flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-8{gap:8px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--rosa-fundo)}::-webkit-scrollbar-thumb{background:var(--rosa-claro);border-radius:10px}
+</style>
+</head>
+<body>
+
+<!-- ══ TELA DE LOGIN ══════════════════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <span class="icon">🌸</span>
+      <h1>Amorah Doceria</h1>
+      <p>Sistema de Gestão</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="showAuthTab('login',this)">Entrar</button>
+      <button class="auth-tab" onclick="showAuthTab('signup',this)">Criar conta</button>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <div id="auth-success" class="auth-success"></div>
+
+    <div id="tab-login">
+      <div class="form-group" style="margin-bottom:14px">
+        <label>E-mail</label>
+        <input type="email" id="login-email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>Senha</label>
+        <input type="password" id="login-senha" placeholder="••••••••" onkeydown="if(event.key==='Enter')fazerLogin()">
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:15px;padding:12px" onclick="fazerLogin()" id="btn-login">
+        Entrar
+      </button>
+    </div>
+
+    <div id="tab-signup" style="display:none">
+      <div class="form-group" style="margin-bottom:14px">
+        <label>E-mail</label>
+        <input type="email" id="signup-email" placeholder="seu@email.com">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label>Senha (mínimo 6 caracteres)</label>
+        <input type="password" id="signup-senha" placeholder="••••••••">
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>Confirmar Senha</label>
+        <input type="password" id="signup-senha2" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;font-size:15px;padding:12px" onclick="fazerCadastro()" id="btn-signup">
+        Criar conta
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ════════════════════════════════════════════════════════════════════ -->
+<div id="app-screen">
+  <aside class="sidebar">
+    <div class="logo">
+      <span class="logo-icon">🌸</span>
+      <h1>Amorah</h1>
+      <span>Doceria — Gestão</span>
+    </div>
+    <div class="user-bar">
+      <span class="user-email" id="user-email-display">—</span>
+      <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+    </div>
+    <nav>
+      <div class="nav-section">Principal</div>
+      <div class="nav-item active" onclick="showPage('dashboard',this)"><span class="nav-icon">📊</span> Dashboard</div>
+      <div class="nav-section">Produção</div>
+      <div class="nav-item" onclick="showPage('ingredientes',this)"><span class="nav-icon">🥚</span> Ingredientes</div>
+      <div class="nav-item" onclick="showPage('receitas',this)"><span class="nav-icon">🧁</span> Receitas</div>
+      <div class="nav-item" onclick="showPage('custos',this)"><span class="nav-icon">🏠</span> Custos Fixos</div>
+      <div class="nav-section">Financeiro</div>
+      <div class="nav-item" onclick="showPage('caixa',this)"><span class="nav-icon">💰</span> Caixa do Dia</div>
+      <div class="nav-item" onclick="showPage('historico',this)"><span class="nav-icon">📅</span> Histórico de Caixa</div>
+      <div class="nav-section">Vendas</div>
+      <div class="nav-item" onclick="showPage('vendas',this)"><span class="nav-icon">🛍️</span> Registrar Venda</div>
+      <div class="nav-item" onclick="showPage('relatorios',this)"><span class="nav-icon">📈</span> Relatórios</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sync-status"></div>
+      v2.0 · Amorah Doceria 🌸
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div><div class="page-title">🌸 Bem-vinda!</div><div class="page-subtitle" id="dash-data"></div></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card rosa"><div class="stat-icon">💰</div><div class="stat-label">Faturamento Hoje</div><div class="stat-value" id="d-fat">R$ 0,00</div><div class="stat-change">do dia</div></div>
+        <div class="stat-card verde"><div class="stat-icon">✅</div><div class="stat-label">Lucro Estimado</div><div class="stat-value" id="d-lucro">R$ 0,00</div><div class="stat-change" id="d-lucro-pct">margem</div></div>
+        <div class="stat-card amarelo"><div class="stat-icon">🛍️</div><div class="stat-label">Vendas Hoje</div><div class="stat-value" id="d-vendas">0</div><div class="stat-change" id="d-ticket">Ticket: R$ 0,00</div></div>
+        <div class="stat-card marrom"><div class="stat-icon">🧁</div><div class="stat-label">Receitas Ativas</div><div class="stat-value" id="d-receitas">0</div><div class="stat-change">cadastradas</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card"><div class="card-title">📊 Faturamento — Últimos 7 Dias</div><div class="bar-chart" id="chart-7d"><div style="width:100%;text-align:center;color:var(--cinza);font-size:13px;padding:16px">Nenhum dado ainda</div></div></div>
+        <div class="card"><div class="card-title">🏆 Produtos Mais Vendidos</div><div id="d-ranking"><div class="empty-state" style="padding:16px"><div style="font-size:28px">🧁</div><p>Registre vendas para ver o ranking</p></div></div></div>
+      </div>
+      <div class="two-col">
+        <div class="card"><div class="card-title">⚠️ Alertas de Estoque</div><div id="d-alertas"><div class="alert alert-success">✅ Todos os ingredientes com estoque adequado</div></div></div>
+        <div class="card"><div class="card-title">💳 Pagamentos de Hoje</div><div id="d-pagamentos"><div class="empty-state" style="padding:16px"><p>Feche o caixa para ver o resumo</p></div></div></div>
+      </div>
+      <div class="card" id="d-lucro-real-card">
+        <div class="card-title">💡 Lucro Real do Dia — Detalhamento</div>
+        <div id="d-lucro-real-body"><div class="empty-state" style="padding:20px"><div class="icon" style="font-size:32px">💰</div><h3>Nenhum movimento hoje</h3><p>Preencha o Caixa do Dia ou registre vendas.</p></div></div>
+      </div>
+    </div>
+
+    <!-- INGREDIENTES -->
+    <div class="page" id="page-ingredientes">
+      <div class="page-header">
+        <div><div class="page-title">🥚 Ingredientes</div><div class="page-subtitle">Gerencie seus insumos e custos</div></div>
+        <button class="btn btn-primary" onclick="abrirModalIng()">+ Novo Ingrediente</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Ingrediente</th><th>Unidade</th><th>Custo/Un.</th><th>Estoque</th><th>Mínimo</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody id="tb-ing"><tr><td colspan="7"><div class="empty-state"><div class="icon">🥚</div><h3>Nenhum ingrediente cadastrado</h3></div></td></tr></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- RECEITAS -->
+    <div class="page" id="page-receitas">
+      <div class="page-header">
+        <div><div class="page-title">🧁 Receitas</div><div class="page-subtitle">Custos, precificação e produção</div></div>
+        <button class="btn btn-primary" onclick="abrirModalRec()">+ Nova Receita</button>
+      </div>
+      <div id="lista-receitas"><div class="empty-state card"><div class="icon">🧁</div><h3>Nenhuma receita cadastrada</h3><p>Crie sua primeira receita para calcular custos automaticamente</p></div></div>
+    </div>
+
+    <!-- CUSTOS FIXOS -->
+    <div class="page" id="page-custos">
+      <div class="page-header">
+        <div><div class="page-title">🏠 Custos Fixos</div><div class="page-subtitle">Despesas mensais que impactam sua precificação</div></div>
+        <button class="btn btn-primary" onclick="openModal('m-cf')">+ Adicionar Custo</button>
+      </div>
+      <div class="two-col">
+        <div>
+          <div class="card"><div class="card-title">📋 Custos Cadastrados</div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Descrição</th><th>Categoria</th><th>Valor Mensal</th><th>Ações</th></tr></thead>
+              <tbody id="tb-cf"><tr><td colspan="4"><div class="empty-state" style="padding:16px"><p>Nenhum custo fixo</p></div></td></tr></tbody>
+            </table></div>
+          </div>
+        </div>
+        <div>
+          <div class="card"><div class="card-title">💡 Resumo</div><div id="resumo-cf"><div class="empty-state" style="padding:16px"><p>Adicione custos para ver o resumo</p></div></div></div>
+          <div class="card"><div class="card-title">🎯 Custo por Dia Útil</div>
+            <div class="form-group"><label>Dias úteis no mês</label><input type="number" id="dias-uteis" value="22" min="1" max="31" oninput="calcCustoDia()"></div>
+            <div id="custo-dia-res" class="mt-12"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAIXA -->
+    <div class="page" id="page-caixa">
+      <div class="page-header"><div><div class="page-title">💰 Caixa do Dia</div><div class="page-subtitle">Registre o movimento financeiro do dia</div></div></div>
+      <div class="two-col">
+        <div>
+          <div class="card"><div class="card-title">📅 Informações</div>
+            <div class="form-grid" style="grid-template-columns:1fr 1fr">
+              <div class="form-group"><label>Data</label><input type="date" id="cx-data"></div>
+              <div class="form-group"><label>Nº de Clientes</label><input type="number" id="cx-clientes" placeholder="0" min="0" oninput="calcCaixa()"></div>
+            </div>
+          </div>
+          <div class="card"><div class="card-title">💳 Entradas por Forma de Pagamento</div>
+            <div class="pagamento-grid">
+              <div class="pagamento-card"><label>💵 Dinheiro</label><input type="number" id="pg-din" placeholder="0,00" step="0.01" oninput="calcCaixa()"></div>
+              <div class="pagamento-card"><label>📱 Pix</label><input type="number" id="pg-pix" placeholder="0,00" step="0.01" oninput="calcCaixa()"></div>
+              <div class="pagamento-card"><label>💳 Débito</label><input type="number" id="pg-deb" placeholder="0,00" step="0.01" oninput="calcCaixa()"></div>
+              <div class="pagamento-card"><label>💳 Crédito</label><input type="number" id="pg-cred" placeholder="0,00" step="0.01" oninput="calcCaixa()"></div>
+              <div class="pagamento-card"><label>🛵 Delivery</label><input type="number" id="pg-del" placeholder="0,00" step="0.01" oninput="calcCaixa()"></div>
+              <div class="pagamento-card"><label>➕ Outros</label><input type="number" id="pg-out" placeholder="0,00" step="0.01" oninput="calcCaixa()"></div>
+            </div>
+          </div>
+          <div class="card"><div class="card-title">⚙️ Taxas e Deduções</div>
+            <div class="form-grid">
+              <div class="form-group"><label>Taxa Débito (%)</label><input type="number" id="tx-deb" value="1.5" step="0.1" oninput="calcCaixa()"></div>
+              <div class="form-group"><label>Taxa Crédito (%)</label><input type="number" id="tx-cred" value="3.0" step="0.1" oninput="calcCaixa()"></div>
+              <div class="form-group"><label>Taxa Delivery (%)</label><input type="number" id="tx-del" value="12.0" step="0.1" oninput="calcCaixa()"></div>
+              <div class="form-group"><label>Despesas do dia (R$)</label><input type="number" id="cx-desp" placeholder="0,00" step="0.01" oninput="calcCaixa()"></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="summary-box">
+            <div class="summary-item"><label>Bruto do Dia</label><div class="val" id="r-bruto">R$ 0,00</div></div>
+            <div class="summary-item"><label>(-) Taxas</label><div class="val" id="r-taxas">R$ 0,00</div></div>
+            <div class="summary-item"><label>(-) Despesas</label><div class="val" id="r-desp">R$ 0,00</div></div>
+            <div class="summary-item"><label>💵 Líquido</label><div class="val" id="r-liq">R$ 0,00</div></div>
+          </div>
+          <div class="card">
+            <div class="card-title">📊 Indicadores</div>
+            <div>
+              <div class="flex justify-between items-center" style="padding:7px 0;border-bottom:1px solid var(--rosa-palido)"><span class="text-muted">Ticket Médio</span><span class="fw-600 text-rosa" id="i-ticket">R$ 0,00</span></div>
+              <div class="flex justify-between items-center" style="padding:7px 0;border-bottom:1px solid var(--rosa-palido)"><span class="text-muted">Total em Taxas</span><span class="fw-600" id="i-taxas-pct">0%</span></div>
+              <div class="flex justify-between items-center" style="padding:7px 0;border-bottom:1px solid var(--rosa-palido)"><span class="text-muted">% Pix + Dinheiro</span><span class="fw-600 text-verde" id="i-semtaxa">0%</span></div>
+              <div class="flex justify-between items-center" style="padding:7px 0"><span class="text-muted">Custo Fixo do Dia</span><span class="fw-600" id="i-cf-dia">R$ 0,00</span></div>
+            </div>
+            <hr class="divider">
+            <div class="form-group"><label>Observações</label><textarea id="cx-obs" placeholder="Alguma anotação sobre o dia..."></textarea></div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:10px" onclick="fecharCaixa()">✅ Fechar Caixa do Dia</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div class="page" id="page-historico">
+      <div class="page-header"><div><div class="page-title">📅 Histórico de Caixa</div><div class="page-subtitle">Todos os fechamentos registrados</div></div></div>
+      <div class="stats-grid">
+        <div class="stat-card rosa"><div class="stat-icon">📈</div><div class="stat-label">Faturamento do Mês</div><div class="stat-value" id="h-fat">R$ 0,00</div></div>
+        <div class="stat-card verde"><div class="stat-icon">💵</div><div class="stat-label">Líquido do Mês</div><div class="stat-value" id="h-liq">R$ 0,00</div></div>
+        <div class="stat-card amarelo"><div class="stat-icon">🎯</div><div class="stat-label">Ticket Médio Geral</div><div class="stat-value" id="h-ticket">R$ 0,00</div></div>
+        <div class="stat-card marrom"><div class="stat-icon">📅</div><div class="stat-label">Dias Registrados</div><div class="stat-value" id="h-dias">0</div></div>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>Data</th><th>Bruto</th><th>Taxas</th><th>Despesas</th><th>Líquido</th><th>Clientes</th><th>Ticket</th><th>Ações</th></tr></thead>
+        <tbody id="tb-hist"><tr><td colspan="8"><div class="empty-state" style="padding:16px"><p>Nenhum fechamento registrado</p></div></td></tr></tbody>
+      </table></div></div>
+    </div>
+
+    <!-- VENDAS -->
+    <div class="page" id="page-vendas">
+      <div class="page-header"><div><div class="page-title">🛍️ Registrar Venda</div><div class="page-subtitle">Controle o que foi vendido</div></div></div>
+      <div class="two-col">
+        <div>
+          <div class="card"><div class="card-title">🧁 Nova Venda</div>
+            <div class="form-grid">
+              <div class="form-group"><label>Data</label><input type="date" id="v-data"></div>
+              <div class="form-group"><label>Produto</label><select id="v-prod"><option value="">Selecione...</option></select></div>
+              <div class="form-group"><label>Quantidade</label><input type="number" id="v-qtd" value="1" min="1"></div>
+              <div class="form-group"><label>Preço Unitário (R$)</label><input type="number" id="v-preco" step="0.01" placeholder="0,00"></div>
+            </div>
+            <button class="btn btn-primary" onclick="registrarVenda()">+ Registrar Venda</button>
+          </div>
+        </div>
+        <div>
+          <div class="card"><div class="card-title">📊 Vendas do Dia</div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Produto</th><th>Qtd</th><th>Unit.</th><th>Total</th><th></th></tr></thead>
+              <tbody id="tb-vendas"><tr><td colspan="5"><div class="empty-state" style="padding:16px"><p>Nenhuma venda hoje</p></div></td></tr></tbody>
+            </table></div>
+            <hr class="divider">
+            <div class="flex justify-between items-center"><span class="fw-600">Total:</span><span class="fw-600 text-rosa" id="total-v">R$ 0,00</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RELATÓRIOS -->
+    <div class="page" id="page-relatorios">
+      <div class="page-header"><div><div class="page-title">📈 Relatórios</div><div class="page-subtitle">Análise completa do negócio</div></div></div>
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('rel-v',this)">Vendas por Produto</button>
+        <button class="tab" onclick="showTab('rel-r',this)">Rentabilidade</button>
+        <button class="tab" onclick="showTab('rel-m',this)">Mensal</button>
+      </div>
+      <div id="rel-v"><div class="card"><div class="card-title">🏆 Ranking de Vendas</div><div id="ranking-full"><div class="empty-state"><div class="icon">📊</div><h3>Nenhuma venda registrada</h3></div></div></div></div>
+      <div id="rel-r" style="display:none"><div class="card"><div class="card-title">💹 Rentabilidade por Receita</div><div class="table-wrap"><table><thead><tr><th>Receita</th><th>Custo Unit.</th><th>Preço Venda</th><th>Margem</th><th>Lucro Unit.</th></tr></thead><tbody id="tb-rent"></tbody></table></div></div></div>
+      <div id="rel-m" style="display:none"><div class="card"><div class="card-title">📅 Resumo Mensal</div><div id="resumo-mensal"><div class="empty-state"><div class="icon">📅</div><p>Feche o caixa regularmente para ver o resumo</p></div></div></div></div>
+    </div>
+
+  </main>
+</div><!-- /app-screen -->
+
+<!-- ══ MODAIS ════════════════════════════════════════════════════════════════ -->
+<!-- Ingrediente -->
+<div class="modal-overlay" id="m-ing">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="m-ing-titulo">🥚 Novo Ingrediente</div><button class="modal-close" onclick="closeModal('m-ing')">×</button></div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="i-nome" placeholder="Ex: Farinha de trigo"></div>
+      <div class="form-group"><label>Unidade de Medida</label>
+        <select id="i-un"><option value="g">Grama (g)</option><option value="kg">Quilograma (kg)</option><option value="ml">Mililitro (ml)</option><option value="l">Litro (l)</option><option value="un">Unidade (un)</option><option value="dz">Dúzia (dz)</option><option value="cx">Caixa (cx)</option><option value="pct">Pacote (pct)</option></select>
+      </div>
+      <div class="form-group"><label>Custo por Unidade (R$) *</label><input type="number" id="i-custo" step="0.001" placeholder="0,000"></div>
+      <div class="form-group"><label>Estoque Atual</label><input type="number" id="i-est" step="0.01" placeholder="0"></div>
+      <div class="form-group"><label>Estoque Mínimo (alerta)</label><input type="number" id="i-estmin" step="0.01" placeholder="0"></div>
+      <div class="form-group"><label>Fornecedor (opcional)</label><input type="text" id="i-forn" placeholder="Nome do fornecedor"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-secondary" onclick="closeModal('m-ing')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-ing" onclick="salvarIng()">Salvar Ingrediente</button>
+    </div>
+  </div>
+</div>
+
+<!-- Receita -->
+<div class="modal-overlay" id="m-rec">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header"><div class="modal-title" id="m-rec-titulo">🧁 Nova Receita</div><button class="modal-close" onclick="closeModal('m-rec')">×</button></div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="r-nome" placeholder="Ex: Bolo de Morango"></div>
+      <div class="form-group"><label>Rendimento (unidades)</label><input type="number" id="r-rend" placeholder="Ex: 12" min="1" oninput="calcRec()"></div>
+      <div class="form-group"><label>Tempo de Produção (min)</label><input type="number" id="r-tempo" placeholder="Ex: 90" min="1"></div>
+      <div class="form-group"><label>Margem de Lucro (%)</label><input type="number" id="r-margem" value="60" step="5" oninput="calcRec()"></div>
+      <div class="form-group"><label>% Embalagem (sobre custo)</label><input type="number" id="r-emb" value="10" step="1" oninput="calcRec()"></div>
+      <div class="form-group"><label>Preço de Venda (R$) — opcional</label><input type="number" id="r-preco" step="0.01" placeholder="Calculado automaticamente"></div>
+    </div>
+    <hr class="divider">
+    <div class="card-title" style="font-size:15px;margin-bottom:10px">🧂 Ingredientes da Receita</div>
+    <div id="r-ing-lista"></div>
+    <button class="btn btn-secondary btn-sm" onclick="addIngRec()" style="margin-bottom:14px">+ Adicionar Ingrediente</button>
+    <hr class="divider">
+    <div style="background:var(--rosa-fundo);border-radius:11px;padding:14px;margin-bottom:14px">
+      <div class="card-title" style="font-size:14px;margin-bottom:10px">💰 Cálculo de Custos</div>
+      <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">Custo ingredientes</span><span class="fw-600" id="c-ing">R$ 0,00</span></div>
+      <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">Embalagem</span><span class="fw-600" id="c-emb">R$ 0,00</span></div>
+      <div class="flex justify-between" style="padding:6px 0 3px;border-top:1px solid var(--rosa-palido);margin-top:3px;font-size:13px"><span class="fw-600">Custo Total</span><span class="fw-600 text-rosa" id="c-tot">R$ 0,00</span></div>
+      <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">Custo por unidade</span><span class="fw-600" id="c-un">R$ 0,00</span></div>
+      <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">Preço sugerido (unit.)</span><span class="fw-600 text-verde" id="c-sug">R$ 0,00</span></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeModal('m-rec')">Cancelar</button>
+      <button class="btn btn-primary" id="btn-salvar-rec" onclick="salvarRec()">Salvar Receita</button>
+    </div>
+  </div>
+</div>
+
+<!-- Custo Fixo -->
+<div class="modal-overlay" id="m-cf">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header"><div class="modal-title">🏠 Novo Custo Fixo</div><button class="modal-close" onclick="closeModal('m-cf')">×</button></div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="cf-desc" placeholder="Ex: Aluguel da loja"></div>
+      <div class="form-group"><label>Categoria</label>
+        <select id="cf-cat"><option>Aluguel</option><option>Energia Elétrica</option><option>Gás</option><option>Água</option><option>Internet</option><option>Mão de Obra</option><option>Embalagens</option><option>Marketing</option><option>Contador</option><option>Outros</option></select>
+      </div>
+      <div class="form-group"><label>Valor Mensal (R$) *</label><input type="number" id="cf-val" step="0.01" placeholder="0,00"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-secondary" onclick="closeModal('m-cf')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarCF()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══ SUPABASE ════════════════════════════════════════════════════════════════
+const SUPA_URL  = 'https://rkldicxnmdhcgbkbenny.supabase.co';
+const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJrbGRpY3hubWRoY2dia2Jlbm55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MTcxMjUsImV4cCI6MjA4ODQ5MzEyNX0.HZnvP5kGLWLdofnG2Xr1sg52yeiaIbO4cmxZubHxZDE';
+const { createClient } = supabase;
+const sb = createClient(SUPA_URL, SUPA_KEY);
+let currentUser = null;
+
+// ══ ESTADO ═══════════════════════════════════════════════════════════════════
+const S = { ings:[], recs:[], cfs:[], vendas:[], caixas:[], recIngsTemp:[], editIngId:null, editRecId:null };
+const fmt = v => 'R$ ' + (v||0).toFixed(2).replace('.',',');
+
+// ══ AUTH ══════════════════════════════════════════════════════════════════════
+function showAuthTab(tab, el) {
+  document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-login').style.display  = tab==='login'  ? '' : 'none';
+  document.getElementById('tab-signup').style.display = tab==='signup' ? '' : 'none';
+  document.getElementById('auth-error').classList.remove('show');
+  document.getElementById('auth-success').classList.remove('show');
+}
+
+function authErro(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.classList.add('show');
+  document.getElementById('auth-success').classList.remove('show');
+}
+function authSucesso(msg) {
+  const el = document.getElementById('auth-success');
+  el.textContent = msg; el.classList.add('show');
+  document.getElementById('auth-error').classList.remove('show');
+}
+function setBtnLoading(id, loading, txt) {
+  const b = document.getElementById(id);
+  b.disabled = loading;
+  b.textContent = loading ? '⏳ Aguarde...' : txt;
+}
+
+async function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  if(!email||!senha){ authErro('Preencha e-mail e senha.'); return; }
+  setBtnLoading('btn-login', true, 'Entrar');
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+  setBtnLoading('btn-login', false, 'Entrar');
+  if(error){ authErro('E-mail ou senha incorretos.'); return; }
+  await iniciarApp(data.user);
+}
+
+async function fazerCadastro() {
+  const email = document.getElementById('signup-email').value.trim();
+  const senha = document.getElementById('signup-senha').value;
+  const senha2 = document.getElementById('signup-senha2').value;
+  if(!email||!senha){ authErro('Preencha todos os campos.'); return; }
+  if(senha.length < 6){ authErro('Senha deve ter pelo menos 6 caracteres.'); return; }
+  if(senha !== senha2){ authErro('As senhas não coincidem.'); return; }
+  setBtnLoading('btn-signup', true, 'Criar conta');
+  const { data, error } = await sb.auth.signUp({ email, password: senha });
+  setBtnLoading('btn-signup', false, 'Criar conta');
+  if(error){ authErro('Erro ao criar conta: ' + error.message); return; }
+  if(data.user && !data.session){
+    authSucesso('✅ Confirme seu e-mail antes de entrar!');
+  } else if(data.session) {
+    await iniciarApp(data.user);
+  }
+}
+
+async function fazerLogout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  S.ings=[]; S.recs=[]; S.cfs=[]; S.vendas=[]; S.caixas=[];
+  document.getElementById('app-screen').classList.remove('show');
+  document.getElementById('auth-screen').style.display='flex';
+}
+
+async function iniciarApp(user) {
+  currentUser = user;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').classList.add('show');
+  document.getElementById('user-email-display').textContent = user.email;
+  await carregarDados();
+}
+
+// ══ PERSISTÊNCIA SUPABASE ═════════════════════════════════════════════════════
+function setStatus(msg) {
+  const el = document.getElementById('sync-status');
+  if(el) el.textContent = msg;
+}
+
+function toast(msg, erro=false) {
+  let t = document.getElementById('_toast');
+  if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.style.cssText=`position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.15);transition:opacity .4s;background:${erro?'#fdeaea':'#e8f5ef'};color:${erro?'#822':'#2e6b4f'}`;
+  t.style.opacity='1'; clearTimeout(t._t);
+  t._t=setTimeout(()=>{ t.style.opacity='0'; }, 2800);
+}
+
+async function salvar() {
+  if(!currentUser) return;
+  setStatus('💾 Salvando...');
+  const payload = { ings:S.ings, recs:S.recs, cfs:S.cfs, vendas:S.vendas, caixas:S.caixas };
+  const { error } = await sb.from('amorah_dados').upsert({
+    user_id: currentUser.id,
+    ...payload,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'user_id' });
+  if(error){ toast('⚠️ Erro ao salvar: ' + error.message, true); setStatus(''); return; }
+  toast('☁️ Salvo na nuvem');
+  setStatus('');
+}
+
+async function carregarDados() {
+  setStatus('⏳ Carregando...');
+  const { data, error } = await sb.from('amorah_dados').select('*').eq('user_id', currentUser.id).single();
+  if(data) {
+    S.ings   = data.ings   || [];
+    S.recs   = data.recs   || [];
+    S.cfs    = data.cfs    || [];
+    S.vendas = data.vendas || [];
+    S.caixas = data.caixas || [];
+  }
+  renIngs(); renRecs(); renCF(); renHist(); renVendas(); upSelVenda(); atualizarDash();
+  setStatus('');
+}
+
+// ══ NAVEGAÇÃO ════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+  const hoje = new Date().toISOString().split('T')[0];
+  document.getElementById('cx-data').value  = hoje;
+  document.getElementById('v-data').value   = hoje;
+  document.getElementById('dash-data').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  // verifica sessão ativa
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){ await iniciarApp(session.user); }
+  else { document.getElementById('auth-screen').style.display='flex'; }
+});
+
+function showPage(id, el) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='relatorios'){ renRent(); renRanking(); }
+  if(id==='historico') renHistStats();
+  if(id==='dashboard') atualizarDash();
+}
+
+function showTab(tid, btn) {
+  ['rel-v','rel-r','rel-m'].forEach(t=>{ const el=document.getElementById(t); if(el) el.style.display='none'; });
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(tid).style.display='block'; btn.classList.add('active');
+  if(tid==='rel-r') renRent();
+  if(tid==='rel-v') renRanking();
+  if(tid==='rel-m') renMensal();
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if(id==='m-ing') S.editIngId=null;
+  if(id==='m-rec'){ S.editRecId=null; S.recIngsTemp=[]; }
+}
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
+
+// ══ INGREDIENTES ══════════════════════════════════════════════════════════════
+function abrirModalIng(id=null) {
+  S.editIngId = id;
+  document.getElementById('m-ing-titulo').textContent  = id ? '✏️ Editar Ingrediente' : '🥚 Novo Ingrediente';
+  document.getElementById('btn-salvar-ing').textContent = id ? 'Salvar Alterações' : 'Salvar Ingrediente';
+  if(id) {
+    const i = S.ings.find(x=>x.id===id);
+    document.getElementById('i-nome').value   = i.nome;
+    document.getElementById('i-un').value     = i.un;
+    document.getElementById('i-custo').value  = i.custo;
+    document.getElementById('i-est').value    = i.est;
+    document.getElementById('i-estmin').value = i.estMin;
+    document.getElementById('i-forn').value   = i.forn||'';
+  } else {
+    ['i-nome','i-custo','i-est','i-estmin','i-forn'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('i-un').value='g';
+  }
+  openModal('m-ing');
+}
+
+function salvarIng() {
+  const nome=document.getElementById('i-nome').value.trim();
+  const custo=parseFloat(document.getElementById('i-custo').value)||0;
+  if(!nome||custo<=0){ alert('Preencha nome e custo.'); return; }
+  const dados={ nome, un:document.getElementById('i-un').value, custo,
+    est:parseFloat(document.getElementById('i-est').value)||0,
+    estMin:parseFloat(document.getElementById('i-estmin').value)||0,
+    forn:document.getElementById('i-forn').value.trim() };
+  if(S.editIngId){
+    const idx=S.ings.findIndex(x=>x.id===S.editIngId);
+    if(idx>=0){ S.ings[idx]={...S.ings[idx],...dados}; S.recs=S.recs.map(r=>recalcRec(r)); }
+  } else {
+    S.ings.push({id:Date.now(),...dados});
+  }
+  S.editIngId=null; renIngs(); upSelVenda(); closeModal('m-ing'); salvar(); atualizarDash();
+}
+
+function renIngs() {
+  const tb=document.getElementById('tb-ing');
+  if(!S.ings.length){ tb.innerHTML='<tr><td colspan="7"><div class="empty-state"><div class="icon">🥚</div><h3>Nenhum ingrediente cadastrado</h3></div></td></tr>'; return; }
+  tb.innerHTML=S.ings.map(i=>{
+    const ok=i.est>i.estMin;
+    return `<tr>
+      <td><strong>${i.nome}</strong>${i.forn?`<br><span class="text-muted">${i.forn}</span>`:''}</td>
+      <td><span class="badge badge-rosa">${i.un}</span></td>
+      <td class="fw-600 text-rosa">${fmt(i.custo)}</td>
+      <td>${i.est} ${i.un}</td><td>${i.estMin} ${i.un}</td>
+      <td><span class="badge ${ok?'badge-verde':'badge-vermelho'}">${ok?'✅ Ok':'⚠️ Baixo'}</span></td>
+      <td style="display:flex;gap:5px">
+        <button class="btn btn-secondary btn-sm" onclick="abrirModalIng(${i.id})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="delIng(${i.id})">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function delIng(id){ if(!confirm('Excluir ingrediente?')) return; S.ings=S.ings.filter(i=>i.id!==id); renIngs(); checkAlertas(); salvar(); }
+
+// ══ RECEITAS ══════════════════════════════════════════════════════════════════
+const UN_GROUPS={ massa:{base:'g',units:{g:1,kg:1000}}, volume:{base:'ml',units:{ml:1,l:1000}}, count:{base:'un',units:{un:1,dz:12,cx:1,pct:1}} };
+function unInfo(un){ for(const [g,d] of Object.entries(UN_GROUPS)){ if(un in d.units) return {grp:g,base:d.base,fator:d.units[un]}; } return {grp:'custom',base:un,fator:1}; }
+function porcaoOpts(ingUn,selUn){ const {grp}=unInfo(ingUn); let o=[]; if(grp==='massa') o=['g','kg']; else if(grp==='volume') o=['ml','l']; else o=[ingUn]; return o.map(u=>`<option value="${u}" ${selUn===u?'selected':''}>${u}</option>`).join(''); }
+function calcCustoItem(it){ const ing=S.ings.find(i=>i.id==it.ingId); if(!ing||!it.qtd) return 0; const {fator:fP}=unInfo(it.unPorcao||ing.un); const {fator:fC}=unInfo(ing.un); return ing.custo*(it.qtd*fP/fC); }
+function recalcRec(r){ const cI=r.ings.reduce((s,it)=>s+calcCustoItem(it),0); const cE=cI*(r.pEmb/100); const cT=cI+cE; const cU=cT/(r.rend||1); const sg=cU/(1-(r.mg||60)/100); return {...r,cTot:cT,cUn:cU,sug:sg}; }
+
+function abrirModalRec(id=null) {
+  S.editRecId=id; S.recIngsTemp=[];
+  document.getElementById('m-rec-titulo').textContent   = id ? '✏️ Editar Receita' : '🧁 Nova Receita';
+  document.getElementById('btn-salvar-rec').textContent  = id ? 'Salvar Alterações' : 'Salvar Receita';
+  if(id){
+    const r=S.recs.find(x=>x.id===id);
+    document.getElementById('r-nome').value   = r.nome;
+    document.getElementById('r-rend').value   = r.rend;
+    document.getElementById('r-tempo').value  = r.tempo;
+    document.getElementById('r-margem').value = r.mg;
+    document.getElementById('r-emb').value    = r.pEmb;
+    document.getElementById('r-preco').value  = r.pv!==r.sug ? r.pv : '';
+    S.recIngsTemp=r.ings.map(it=>({...it}));
+  } else {
+    ['r-nome','r-rend','r-tempo','r-preco'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('r-margem').value='60';
+    document.getElementById('r-emb').value='10';
+  }
+  openModal('m-rec'); renIngRec(); calcRec();
+}
+
+function addIngRec(){ S.recIngsTemp.push({ingId:'',qtd:0,unPorcao:''}); renIngRec(); }
+function renIngRec(){
+  const div=document.getElementById('r-ing-lista');
+  if(!S.recIngsTemp.length){ div.innerHTML='<div class="text-muted" style="font-size:13px;margin-bottom:10px">Nenhum ingrediente adicionado ainda.</div>'; return; }
+  div.innerHTML=S.recIngsTemp.map((it,i)=>{
+    const ing=S.ings.find(x=>x.id==it.ingId);
+    if(ing&&!it.unPorcao) it.unPorcao=ing.un;
+    const ingOpts=S.ings.map(x=>`<option value="${x.id}" ${it.ingId==x.id?'selected':''}>${x.nome} (${x.un})</option>`).join('');
+    const unOpts=ing?porcaoOpts(ing.un,it.unPorcao):`<option value="">—</option>`;
+    const c=calcCustoItem(it);
+    const ref=ing?`<div class="un-hint">ref: ${fmt(ing.custo)}/${ing.un}</div>`:'';
+    return `<div class="ingrediente-linha">
+      <select onchange="updIngRec(${i},'ingId',this.value)"><option value="">Selecione...</option>${ingOpts}</select>
+      <select onchange="updIngRec(${i},'unPorcao',this.value)" ${!ing?'disabled':''}>${unOpts}</select>
+      <div style="display:flex;flex-direction:column"><input type="number" placeholder="Qtd" value="${it.qtd||''}" step="0.001" min="0" oninput="updIngRec(${i},'qtd',parseFloat(this.value)||0)">${ref}</div>
+      <span class="custo-tag">${fmt(c)}</span>
+      <button class="btn btn-danger btn-sm" onclick="rmIngRec(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+function updIngRec(i,k,v){ S.recIngsTemp[i][k]=v; if(k==='ingId'){ const ing=S.ings.find(x=>x.id==v); S.recIngsTemp[i].unPorcao=ing?ing.un:''; S.recIngsTemp[i].qtd=0; } renIngRec(); calcRec(); }
+function rmIngRec(i){ S.recIngsTemp.splice(i,1); renIngRec(); calcRec(); }
+function calcRec(){
+  const cI=S.recIngsTemp.reduce((s,it)=>s+calcCustoItem(it),0);
+  const pE=parseFloat(document.getElementById('r-emb').value)||0;
+  const cE=cI*(pE/100); const cT=cI+cE;
+  const rend=parseInt(document.getElementById('r-rend').value)||1;
+  const cU=cT/rend; const mg=parseFloat(document.getElementById('r-margem').value)||60; const sg=cU/(1-mg/100);
+  document.getElementById('c-ing').textContent=fmt(cI); document.getElementById('c-emb').textContent=fmt(cE);
+  document.getElementById('c-tot').textContent=fmt(cT); document.getElementById('c-un').textContent=fmt(cU); document.getElementById('c-sug').textContent=fmt(sg);
+}
+function salvarRec(){
+  const nome=document.getElementById('r-nome').value.trim(); if(!nome){ alert('Informe o nome.'); return; }
+  const rend=parseInt(document.getElementById('r-rend').value)||1, tempo=parseInt(document.getElementById('r-tempo').value)||0;
+  const mg=parseFloat(document.getElementById('r-margem').value)||60, pEmb=parseFloat(document.getElementById('r-emb').value)||0;
+  const cI=S.recIngsTemp.reduce((s,it)=>s+calcCustoItem(it),0);
+  const cE=cI*(pEmb/100), cT=cI+cE, cU=cT/rend, sg=cU/(1-mg/100);
+  const pv=parseFloat(document.getElementById('r-preco').value)||sg;
+  const dados={nome,rend,tempo,mg,pEmb,ings:[...S.recIngsTemp],cTot:cT,cUn:cU,pv,sug:sg};
+  if(S.editRecId){ const idx=S.recs.findIndex(r=>r.id===S.editRecId); if(idx>=0) S.recs[idx]={id:S.editRecId,...dados}; }
+  else S.recs.push({id:Date.now(),...dados});
+  S.editRecId=null; renRecs(); upSelVenda(); closeModal('m-rec'); salvar(); atualizarDash();
+}
+function renRecs(){
+  const div=document.getElementById('lista-receitas');
+  if(!S.recs.length){ div.innerHTML='<div class="empty-state card"><div class="icon">🧁</div><h3>Nenhuma receita cadastrada</h3></div>'; return; }
+  div.innerHTML=S.recs.map(r=>{
+    const lucro=r.pv-r.cUn, mg=((lucro/r.pv)*100).toFixed(1);
+    const ings=r.ings.map(it=>{ const ing=S.ings.find(i=>i.id==it.ingId); return ing?`${ing.nome} (${it.qtd}${it.unPorcao||ing.un})`:''; }).filter(Boolean).join(', ');
+    return `<div class="card">
+      <div class="flex justify-between items-center" style="flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:17px;color:var(--marrom);font-weight:600">${r.nome}</div>
+          <div class="text-muted" style="margin-top:3px">🕐 ${r.tempo}min · Rende ${r.rend} un · Margem: ${r.mg}%</div>
+          ${ings?`<div class="text-muted" style="margin-top:2px;font-size:11px">🧂 ${ings}</div>`:''}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" onclick="abrirModalRec(${r.id})">✏️ Editar</button>
+          <button class="btn btn-danger btn-sm" onclick="delRec(${r.id})">🗑️</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:14px;background:var(--rosa-fundo);border-radius:11px;padding:14px">
+        <div><div class="stat-label" style="font-size:10px">Custo Total</div><div class="fw-600 text-rosa">${fmt(r.cTot)}</div></div>
+        <div><div class="stat-label" style="font-size:10px">Custo/Unidade</div><div class="fw-600">${fmt(r.cUn)}</div></div>
+        <div><div class="stat-label" style="font-size:10px">Preço de Venda</div><div class="fw-600" style="color:var(--verde)">${fmt(r.pv)}</div></div>
+        <div><div class="stat-label" style="font-size:10px">Lucro Unitário</div><div class="fw-600" style="color:${lucro>0?'var(--verde)':'var(--vermelho)'}">${fmt(lucro)} (${mg}%)</div></div>
+        <div><div class="stat-label" style="font-size:10px">Preço Sugerido</div><div class="fw-600">${fmt(r.sug)}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function delRec(id){ if(!confirm('Excluir receita?')) return; S.recs=S.recs.filter(r=>r.id!==id); renRecs(); upSelVenda(); salvar(); atualizarDash(); }
+
+// ══ CUSTOS FIXOS ══════════════════════════════════════════════════════════════
+function salvarCF(){
+  const desc=document.getElementById('cf-desc').value.trim(), val=parseFloat(document.getElementById('cf-val').value)||0;
+  if(!desc||val<=0){ alert('Preencha todos os campos.'); return; }
+  S.cfs.push({id:Date.now(),desc,cat:document.getElementById('cf-cat').value,val});
+  renCF(); closeModal('m-cf'); document.getElementById('cf-desc').value=''; document.getElementById('cf-val').value=''; salvar();
+}
+function renCF(){
+  const tb=document.getElementById('tb-cf');
+  if(!S.cfs.length){ tb.innerHTML='<tr><td colspan="4"><div class="empty-state" style="padding:14px"><p>Nenhum custo fixo</p></div></td></tr>'; document.getElementById('resumo-cf').innerHTML='<div class="empty-state" style="padding:14px"><p>Adicione custos para ver o resumo</p></div>'; return; }
+  tb.innerHTML=S.cfs.map(c=>`<tr><td>${c.desc}</td><td><span class="badge badge-rosa">${c.cat}</span></td><td class="fw-600">${fmt(c.val)}</td><td><button class="btn btn-danger btn-sm" onclick="delCF(${c.id})">🗑️</button></td></tr>`).join('');
+  const tot=S.cfs.reduce((s,c)=>s+c.val,0), pC={};
+  S.cfs.forEach(c=>{ pC[c.cat]=(pC[c.cat]||0)+c.val; });
+  document.getElementById('resumo-cf').innerHTML=`<div class="flex justify-between" style="margin-bottom:14px"><span class="fw-600">Total Mensal</span><span class="fw-600 text-rosa" style="font-size:17px">${fmt(tot)}</span></div>`+
+    Object.entries(pC).map(([cat,v])=>`<div style="margin-bottom:7px"><div class="flex justify-between" style="font-size:12px;margin-bottom:3px"><span>${cat}</span><span class="fw-600">${fmt(v)}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${(v/tot*100).toFixed(0)}%"></div></div></div>`).join('');
+  calcCustoDia();
+}
+function delCF(id){ S.cfs=S.cfs.filter(c=>c.id!==id); renCF(); salvar(); }
+function calcCustoDia(){
+  const dias=parseInt(document.getElementById('dias-uteis').value)||22;
+  const tot=S.cfs.reduce((s,c)=>s+c.val,0), pd=tot/dias;
+  document.getElementById('custo-dia-res').innerHTML=tot>0?`<div class="summary-box" style="grid-template-columns:1fr 1fr;padding:14px"><div class="summary-item"><label>Por Dia Útil</label><div class="val">${fmt(pd)}</div></div><div class="summary-item"><label>Por Hora (8h)</label><div class="val">${fmt(pd/8)}</div></div></div>`:'';
+}
+
+// ══ CAIXA ═════════════════════════════════════════════════════════════════════
+function calcCaixa(){
+  const din=parseFloat(document.getElementById('pg-din').value)||0, pix=parseFloat(document.getElementById('pg-pix').value)||0;
+  const deb=parseFloat(document.getElementById('pg-deb').value)||0, cred=parseFloat(document.getElementById('pg-cred').value)||0;
+  const del=parseFloat(document.getElementById('pg-del').value)||0, out=parseFloat(document.getElementById('pg-out').value)||0;
+  const txD=parseFloat(document.getElementById('tx-deb').value)||0, txC=parseFloat(document.getElementById('tx-cred').value)||0, txDel=parseFloat(document.getElementById('tx-del').value)||0;
+  const desp=parseFloat(document.getElementById('cx-desp').value)||0;
+  const bruto=din+pix+deb+cred+del+out, taxas=(deb*txD/100)+(cred*txC/100)+(del*txDel/100), liq=bruto-taxas-desp;
+  const cli=parseInt(document.getElementById('cx-clientes').value)||0, ticket=cli>0?bruto/cli:0;
+  const dias=parseInt(document.getElementById('dias-uteis').value)||22, cfDia=S.cfs.reduce((s,c)=>s+c.val,0)/dias;
+  document.getElementById('r-bruto').textContent=fmt(bruto); document.getElementById('r-taxas').textContent=fmt(taxas);
+  document.getElementById('r-desp').textContent=fmt(desp); document.getElementById('r-liq').textContent=fmt(liq);
+  document.getElementById('i-ticket').textContent=fmt(ticket);
+  document.getElementById('i-taxas-pct').textContent=bruto>0?(taxas/bruto*100).toFixed(1)+'%':'0%';
+  document.getElementById('i-semtaxa').textContent=bruto>0?((din+pix)/bruto*100).toFixed(1)+'%':'0%';
+  document.getElementById('i-cf-dia').textContent=fmt(cfDia);
+  atualizarDash();
+}
+function fecharCaixa(){
+  const data=document.getElementById('cx-data').value; if(!data){ alert('Informe a data.'); return; }
+  const din=parseFloat(document.getElementById('pg-din').value)||0, pix=parseFloat(document.getElementById('pg-pix').value)||0;
+  const deb=parseFloat(document.getElementById('pg-deb').value)||0, cred=parseFloat(document.getElementById('pg-cred').value)||0;
+  const del=parseFloat(document.getElementById('pg-del').value)||0, out=parseFloat(document.getElementById('pg-out').value)||0;
+  const txD=parseFloat(document.getElementById('tx-deb').value)||1.5, txC=parseFloat(document.getElementById('tx-cred').value)||3, txDel=parseFloat(document.getElementById('tx-del').value)||12;
+  const desp=parseFloat(document.getElementById('cx-desp').value)||0, cli=parseInt(document.getElementById('cx-clientes').value)||0;
+  const obs=document.getElementById('cx-obs').value, bruto=din+pix+deb+cred+del+out;
+  if(bruto===0){ alert('Informe pelo menos um valor.'); return; }
+  const taxas=(deb*txD/100)+(cred*txC/100)+(del*txDel/100), liq=bruto-taxas-desp;
+  S.caixas.push({id:Date.now(),data,bruto,taxas,desp,liq,cli,ticket:cli>0?bruto/cli:0,pags:{din,pix,deb,cred,del,out},obs});
+  renHist(); salvar(); atualizarDash();
+  alert(`✅ Caixa fechado!\nFaturamento: ${fmt(bruto)}\nLíquido: ${fmt(liq)}`);
+  ['pg-din','pg-pix','pg-deb','pg-cred','pg-del','pg-out','cx-desp','cx-clientes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('cx-obs').value='';
+  ['r-bruto','r-taxas','r-desp','r-liq'].forEach(id=>document.getElementById(id).textContent=fmt(0));
+}
+function renHist(){
+  const tb=document.getElementById('tb-hist');
+  if(!S.caixas.length){ tb.innerHTML='<tr><td colspan="8"><div class="empty-state" style="padding:14px"><p>Nenhum fechamento registrado</p></div></td></tr>'; return; }
+  const sorted=[...S.caixas].sort((a,b)=>b.data.localeCompare(a.data));
+  tb.innerHTML=sorted.map(h=>`<tr><td>${new Date(h.data+'T12:00').toLocaleDateString('pt-BR')}</td><td class="fw-600">${fmt(h.bruto)}</td><td style="color:var(--vermelho)">${fmt(h.taxas)}</td><td style="color:var(--vermelho)">${fmt(h.desp)}</td><td class="fw-600 text-verde">${fmt(h.liq)}</td><td>${h.cli}</td><td>${fmt(h.ticket)}</td><td><button class="btn btn-danger btn-sm" onclick="delCaixa(${h.id})">🗑️</button></td></tr>`).join('');
+  renHistStats();
+}
+function delCaixa(id){ if(!confirm('Excluir?')) return; S.caixas=S.caixas.filter(h=>h.id!==id); renHist(); salvar(); atualizarDash(); }
+function renHistStats(){
+  const m=new Date().getMonth(), a=new Date().getFullYear();
+  const doMes=S.caixas.filter(h=>{ const d=new Date(h.data+'T12:00'); return d.getMonth()===m&&d.getFullYear()===a; });
+  const fat=doMes.reduce((s,h)=>s+h.bruto,0), liq=doMes.reduce((s,h)=>s+h.liq,0), cli=doMes.reduce((s,h)=>s+h.cli,0);
+  document.getElementById('h-fat').textContent=fmt(fat); document.getElementById('h-liq').textContent=fmt(liq);
+  document.getElementById('h-ticket').textContent=fmt(cli>0?fat/cli:0); document.getElementById('h-dias').textContent=doMes.length;
+}
+
+// ══ VENDAS ════════════════════════════════════════════════════════════════════
+function upSelVenda(){ document.getElementById('v-prod').innerHTML='<option value="">Selecione...</option>'+S.recs.map(r=>`<option value="${r.id}">${r.nome}</option>`).join(''); }
+function registrarVenda(){
+  const data=document.getElementById('v-data').value, pid=document.getElementById('v-prod').value;
+  const qtd=parseInt(document.getElementById('v-qtd').value)||1, preco=parseFloat(document.getElementById('v-preco').value)||0;
+  if(!data||!pid||preco<=0){ alert('Preencha todos os campos.'); return; }
+  const p=S.recs.find(r=>r.id==pid);
+  S.vendas.push({id:Date.now(),data,pid,nome:p.nome,qtd,preco,total:qtd*preco});
+  renVendas(); salvar(); atualizarDash();
+  document.getElementById('v-qtd').value=1; document.getElementById('v-preco').value='';
+}
+function renVendas(){
+  const hoje=document.getElementById('v-data').value, vs=S.vendas.filter(v=>v.data===hoje);
+  const tb=document.getElementById('tb-vendas'), tot=vs.reduce((s,v)=>s+v.total,0);
+  tb.innerHTML=vs.length?vs.map(v=>`<tr><td>${v.nome}</td><td>${v.qtd}</td><td>${fmt(v.preco)}</td><td class="fw-600 text-rosa">${fmt(v.total)}</td><td><button class="btn btn-danger btn-sm" onclick="delVenda(${v.id})">✕</button></td></tr>`).join(''):'<tr><td colspan="5"><div class="empty-state" style="padding:14px"><p>Nenhuma venda hoje</p></div></td></tr>';
+  document.getElementById('total-v').textContent=fmt(tot);
+}
+function delVenda(id){ S.vendas=S.vendas.filter(v=>v.id!==id); renVendas(); salvar(); atualizarDash(); }
+
+// ══ RELATÓRIOS ════════════════════════════════════════════════════════════════
+function renRent(){
+  const tb=document.getElementById('tb-rent');
+  if(!S.recs.length){ tb.innerHTML='<tr><td colspan="5"><div class="empty-state" style="padding:14px"><p>Cadastre receitas para ver</p></div></td></tr>'; return; }
+  tb.innerHTML=S.recs.map(r=>{ const l=r.pv-r.cUn, m=(l/r.pv*100).toFixed(1); return `<tr><td><strong>${r.nome}</strong></td><td>${fmt(r.cUn)}</td><td>${fmt(r.pv)}</td><td><span class="badge ${l>0?'badge-verde':'badge-vermelho'}">${m}%</span></td><td class="fw-600" style="color:${l>0?'var(--verde)':'var(--vermelho)'}">${fmt(l)}</td></tr>`; }).join('');
+}
+function renRanking(){
+  const rank={};
+  S.vendas.forEach(v=>{ if(!rank[v.nome]) rank[v.nome]={qtd:0,tot:0}; rank[v.nome].qtd+=v.qtd; rank[v.nome].tot+=v.total; });
+  const sorted=Object.entries(rank).sort((a,b)=>b[1].qtd-a[1].qtd);
+  const div=document.getElementById('ranking-full');
+  if(!sorted.length){ div.innerHTML='<div class="empty-state"><div class="icon">📊</div><h3>Nenhuma venda</h3></div>'; return; }
+  const max=sorted[0][1].qtd;
+  div.innerHTML=sorted.map(([n,d],i)=>`<div style="margin-bottom:14px"><div class="flex justify-between items-center" style="margin-bottom:5px"><span class="fw-600">${i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '} ${n}</span><div><span class="badge badge-rosa">${d.qtd} un</span><span class="fw-600 text-rosa" style="margin-left:7px">${fmt(d.tot)}</span></div></div><div class="progress-bar"><div class="progress-fill" style="width:${(d.qtd/max*100).toFixed(0)}%"></div></div></div>`).join('');
+}
+function renMensal(){
+  const pM={};
+  S.caixas.forEach(h=>{ const d=new Date(h.data+'T12:00'); const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; if(!pM[k]) pM[k]={fat:0,liq:0,dias:0,cli:0}; pM[k].fat+=h.bruto; pM[k].liq+=h.liq; pM[k].dias++; pM[k].cli+=h.cli; });
+  const sorted=Object.entries(pM).sort((a,b)=>b[0].localeCompare(a[0]));
+  const div=document.getElementById('resumo-mensal');
+  if(!sorted.length){ div.innerHTML='<div class="empty-state"><div class="icon">📅</div><p>Nenhum dado</p></div>'; return; }
+  div.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Mês</th><th>Faturamento</th><th>Líquido</th><th>Dias</th><th>Ticket Médio</th></tr></thead><tbody>${sorted.map(([k,d])=>{ const[a,m]=k.split('-'); const nm=new Date(a,m-1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'}); return `<tr><td><strong>${nm}</strong></td><td class="fw-600 text-rosa">${fmt(d.fat)}</td><td class="fw-600 text-verde">${fmt(d.liq)}</td><td>${d.dias}</td><td>${fmt(d.cli>0?d.fat/d.cli:0)}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+
+// ══ DASHBOARD ════════════════════════════════════════════════════════════════
+function checkAlertas(){
+  const al=S.ings.filter(i=>i.est>0&&i.est<=i.estMin);
+  document.getElementById('d-alertas').innerHTML=al.length?al.map(a=>`<div class="alert alert-warning">⚠️ <strong>${a.nome}</strong> estoque baixo: ${a.est} ${a.un} (mín: ${a.estMin})</div>`).join(''):'<div class="alert alert-success">✅ Todos os ingredientes com estoque adequado</div>';
+}
+
+function atualizarDash(){
+  const hoje=new Date().toISOString().split('T')[0];
+  const vH=S.vendas.filter(v=>v.data===hoje);
+  const fatV=vH.reduce((s,v)=>s+v.total,0), qtdV=vH.reduce((s,v)=>s+v.qtd,0);
+  const cxH=S.caixas.filter(h=>h.data===hoje);
+  const fatCx=cxH.reduce((s,h)=>s+h.bruto,0), cliCx=cxH.reduce((s,h)=>s+h.cli,0);
+  const fatD=fatCx||fatV, custoP=vH.reduce((s,v)=>{ const r=S.recs.find(r=>r.id==v.pid); return s+(r?r.cUn*v.qtd:0); },0);
+  const lucro=fatD-custoP, ticket=cliCx>0?fatCx/cliCx:0;
+  document.getElementById('d-fat').textContent=fmt(fatD);
+  document.getElementById('d-lucro').textContent=fmt(lucro);
+  document.getElementById('d-lucro-pct').textContent=fatD>0?`Margem: ${(lucro/fatD*100).toFixed(1)}%`:'margem';
+  document.getElementById('d-vendas').textContent=qtdV;
+  document.getElementById('d-ticket').textContent=`Ticket: ${fmt(ticket)}`;
+  document.getElementById('d-receitas').textContent=S.recs.length;
+
+  // Ranking
+  const rank={}; S.vendas.forEach(v=>{ if(!rank[v.nome]) rank[v.nome]=0; rank[v.nome]+=v.qtd; });
+  const sorted=Object.entries(rank).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const rd=document.getElementById('d-ranking');
+  if(!sorted.length){ rd.innerHTML='<div class="empty-state" style="padding:14px"><div style="font-size:26px">🧁</div><p>Registre vendas para ver o ranking</p></div>'; }
+  else { const mx=sorted[0][1]; rd.innerHTML=sorted.map(([n,q],i)=>`<div style="margin-bottom:9px"><div class="flex justify-between" style="font-size:12px;margin-bottom:3px"><span>${i===0?'🥇':i===1?'🥈':i===2?'🥉':'  '} ${n}</span><span class="fw-600">${q} un</span></div><div class="progress-bar"><div class="progress-fill" style="width:${(q/mx*100).toFixed(0)}%"></div></div></div>`).join(''); }
+
+  // Gráfico 7 dias
+  const days=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const ds=d.toISOString().split('T')[0]; const fat=S.caixas.filter(h=>h.data===ds).reduce((s,h)=>s+h.bruto,0)||S.vendas.filter(v=>v.data===ds).reduce((s,v)=>s+v.total,0); days.push({lb:d.toLocaleDateString('pt-BR',{weekday:'short'}),fat}); }
+  const mx2=Math.max(...days.map(d=>d.fat),1), ch=document.getElementById('chart-7d');
+  if(days.every(d=>d.fat===0)){ ch.innerHTML='<div style="width:100%;text-align:center;color:var(--cinza);font-size:13px;padding:14px">Nenhum dado ainda</div>'; }
+  else { ch.innerHTML=days.map(d=>`<div class="bar-item"><div class="bar-val">${d.fat>0?'R$'+d.fat.toFixed(0):''}</div><div class="bar" style="height:${Math.max((d.fat/mx2*100),2).toFixed(0)}px"></div><div class="bar-label">${d.lb}</div></div>`).join(''); }
+
+  // Pagamentos hoje
+  const dp=document.getElementById('d-pagamentos');
+  if(!cxH.length){ dp.innerHTML='<div class="empty-state" style="padding:14px"><p>Feche o caixa para ver</p></div>'; }
+  else { const p={Din:0,Pix:0,Deb:0,Cred:0,Del:0,Out:0}; cxH.forEach(h=>{ p.Din+=h.pags.din||0; p.Pix+=h.pags.pix||0; p.Deb+=h.pags.deb||0; p.Cred+=h.pags.cred||0; p.Del+=h.pags.del||0; p.Out+=h.pags.out||0; }); const labels={Din:'💵 Dinheiro',Pix:'📱 Pix',Deb:'💳 Débito',Cred:'💳 Crédito',Del:'🛵 Delivery',Out:'➕ Outros'}; dp.innerHTML=Object.entries(p).filter(([,v])=>v>0).map(([k,v])=>`<div class="flex justify-between items-center" style="padding:6px 0;border-bottom:1px solid var(--rosa-palido)"><span class="text-muted">${labels[k]}</span><span class="fw-600">${fmt(v)}</span></div>`).join(''); }
+
+  checkAlertas();
+
+  // Card Lucro Real
+  const lrBody=document.getElementById('d-lucro-real-body');
+  const cxDin=parseFloat(document.getElementById('pg-din')?.value)||0, cxPix=parseFloat(document.getElementById('pg-pix')?.value)||0;
+  const cxDeb=parseFloat(document.getElementById('pg-deb')?.value)||0, cxCred=parseFloat(document.getElementById('pg-cred')?.value)||0;
+  const cxDel=parseFloat(document.getElementById('pg-del')?.value)||0, cxOut=parseFloat(document.getElementById('pg-out')?.value)||0;
+  const cxTxD=parseFloat(document.getElementById('tx-deb')?.value)||1.5, cxTxC=parseFloat(document.getElementById('tx-cred')?.value)||3, cxTxDel=parseFloat(document.getElementById('tx-del')?.value)||12;
+  const cxDesp=parseFloat(document.getElementById('cx-desp')?.value)||0, cxCli=parseInt(document.getElementById('cx-clientes')?.value)||0;
+  const fBruto=cxDin+cxPix+cxDeb+cxCred+cxDel+cxOut, fTaxas=(cxDeb*cxTxD/100)+(cxCred*cxTxC/100)+(cxDel*cxTxDel/100);
+  const brutoD=cxH.reduce((s,h)=>s+h.bruto,0)+fBruto, taxasD=cxH.reduce((s,h)=>s+h.taxas,0)+fTaxas;
+  const despD=cxH.reduce((s,h)=>s+h.desp,0)+cxDesp, cliD=cxH.reduce((s,h)=>s+h.cli,0)+cxCli;
+  const dias=parseInt(document.getElementById('dias-uteis')?.value)||22, cfDia=S.cfs.reduce((s,c)=>s+c.val,0)/dias;
+  const temVendas=vH.length>0, custoProd=vH.reduce((s,v)=>{ const r=S.recs.find(r=>r.id==v.pid); return s+(r?r.cUn*v.qtd:0); },0);
+  const lucroReal=brutoD-taxasD-despD-cfDia-(temVendas?custoProd:0);
+  const ticketD=cliD>0?brutoD/cliD:0, rateioCli=cliD>0?(cfDia+despD)/cliD:0, lucroCli=cliD>0?lucroReal/cliD:0;
+
+  if(brutoD===0&&!temVendas){ lrBody.innerHTML=`<div class="empty-state" style="padding:20px"><div class="icon" style="font-size:32px">💰</div><h3>Nenhum movimento hoje</h3><p>Preencha o Caixa do Dia ou registre vendas.</p></div>`; return; }
+  const cL=lucroReal>=0?'var(--verde)':'var(--vermelho)', cLC=lucroCli>=0?'var(--verde)':'var(--vermelho)';
+  const linhaProd=temVendas?`<div class="flex justify-between" style="padding:5px 0;font-size:13px"><span class="text-muted">− Custo de produção</span><span style="color:var(--vermelho);font-weight:600">− ${fmt(custoProd)}</span></div>`:'';
+  let alertaH='';
+  if(cliD===0) alertaH=`<div class="alert alert-warning" style="font-size:12px;margin-top:10px">ℹ️ Informe o nº de clientes para ver o rateio.</div>`;
+  else if(lucroReal<0){ const f=-lucroReal, ce=brutoD>0?Math.ceil(f/(brutoD/cliD)):'—'; alertaH=`<div class="alert alert-danger" style="font-size:12px;margin-top:10px">⚠️ Dia no vermelho em ${fmt(f)}. Precisaria de ~${ce} clientes a mais.</div>`; }
+  else if(lucroReal<cfDia*0.2) alertaH=`<div class="alert alert-warning" style="font-size:12px;margin-top:10px">⚠️ Lucro real baixo — faturamento mal cobriu os custos do dia.</div>`;
+  else alertaH=`<div class="alert alert-success" style="font-size:12px;margin-top:10px">✅ Dia saudável! Cada cliente gerou ${fmt(lucroCli)} de lucro real.</div>`;
+
+  lrBody.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+    <div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--marrom-claro);margin-bottom:8px">Detalhamento</div>
+      <div style="background:var(--rosa-fundo);border-radius:11px;padding:13px">
+        <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">Faturamento bruto</span><span class="fw-600">${fmt(brutoD)}</span></div>
+        <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">− Taxas</span><span style="color:var(--vermelho);font-weight:600">− ${fmt(taxasD)}</span></div>
+        <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">− Despesas do dia</span><span style="color:var(--vermelho);font-weight:600">− ${fmt(despD)}</span></div>
+        <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">− Custo fixo do dia</span><span style="color:var(--vermelho);font-weight:600">− ${fmt(cfDia)}</span></div>
+        ${linhaProd}
+        <div class="flex justify-between items-center" style="padding:8px 0 3px;border-top:2px solid var(--rosa-palido);margin-top:4px">
+          <span style="font-weight:700;font-size:13px">= Lucro operacional real</span>
+          <span style="font-size:19px;font-weight:700;color:${cL}">${fmt(lucroReal)}</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--marrom-claro);margin-bottom:8px">👥 Rateio por Cliente</div>
+      <div style="border:1.5px solid var(--rosa-palido);border-radius:11px;padding:13px">
+        <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">Clientes no dia</span><span class="fw-600">${cliD||'—'}</span></div>
+        <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">Ticket médio</span><span class="fw-600">${fmt(ticketD)}</span></div>
+        <div class="flex justify-between" style="padding:4px 0;font-size:13px"><span class="text-muted">Custo por cliente</span><span class="fw-600 text-rosa">${cliD>0?fmt(rateioCli):'—'}</span></div>
+        <div class="flex justify-between" style="padding:7px 0 3px;border-top:1px solid var(--rosa-palido);margin-top:3px">
+          <span class="fw-600">Lucro real por cliente</span>
+          <span style="font-size:17px;font-weight:700;color:${cLC}">${cliD>0?fmt(lucroCli):'—'}</span>
+        </div>
+        ${cliD>0?`<div class="progress-bar" style="margin-top:7px"><div class="progress-fill" style="width:${Math.min(Math.max((lucroCli/ticketD)*100,0),100).toFixed(0)}%"></div></div><div style="font-size:10px;color:var(--cinza);margin-top:3px">${((lucroCli/ticketD)*100).toFixed(1)}% do ticket é lucro real</div>`:''}
+      </div>
+      ${alertaH}
+    </div>
+  </div>`;
+}
+</script>
+</body>
+</html>
