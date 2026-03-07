@@ -473,8 +473,16 @@ tr:hover td{background:#fff8fa}
 // ══ SUPABASE ════════════════════════════════════════════════════════════════
 const SUPA_URL  = 'https://rkldicxnmdhcgbkbenny.supabase.co';
 const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJrbGRpY3hubWRoY2dia2Jlbm55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5MTcxMjUsImV4cCI6MjA4ODQ5MzEyNX0.HZnvP5kGLWLdofnG2Xr1sg52yeiaIbO4cmxZubHxZDE';
+const APP_URL = 'https://zezoluiz.github.io/amorah-doceria/';
 const { createClient } = supabase;
-const sb = createClient(SUPA_URL, SUPA_KEY);
+const sb = createClient(SUPA_URL, SUPA_KEY, {
+  auth: {
+    redirectTo: APP_URL,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+});
 let currentUser = null;
 
 // ══ ESTADO ═══════════════════════════════════════════════════════════════════
@@ -526,13 +534,17 @@ async function fazerCadastro() {
   if(senha.length < 6){ authErro('Senha deve ter pelo menos 6 caracteres.'); return; }
   if(senha !== senha2){ authErro('As senhas não coincidem.'); return; }
   setBtnLoading('btn-signup', true, 'Criar conta');
-  const { data, error } = await sb.auth.signUp({ email, password: senha });
+  const { data, error } = await sb.auth.signUp({
+    email, password: senha,
+    options: { emailRedirectTo: 'https://zezoluiz.github.io/amorah-doceria/' }
+  });
   setBtnLoading('btn-signup', false, 'Criar conta');
   if(error){ authErro('Erro ao criar conta: ' + error.message); return; }
-  if(data.user && !data.session){
-    authSucesso('✅ Confirme seu e-mail antes de entrar!');
-  } else if(data.session) {
+  // Se sessão já criada (confirmação desativada no Supabase), entra direto
+  if(data.session) {
     await iniciarApp(data.user);
+  } else if(data.user) {
+    authSucesso('✅ Conta criada! Verifique seu e-mail para confirmar, depois faça login.');
   }
 }
 
@@ -601,10 +613,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cx-data').value  = hoje;
   document.getElementById('v-data').value   = hoje;
   document.getElementById('dash-data').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  // verifica sessão ativa
+  // Detecta token na URL (vindo do link de confirmação de email)
+  const hash = window.location.hash;
+  if(hash && hash.includes('access_token')) {
+    const { data:{ session }, error } = await sb.auth.getSession();
+    if(session){ window.location.hash = ''; await iniciarApp(session.user); return; }
+  }
+  // Verifica sessão persistida
   const { data:{ session } } = await sb.auth.getSession();
   if(session){ await iniciarApp(session.user); }
   else { document.getElementById('auth-screen').style.display='flex'; }
+  // Ouve mudanças de auth (login automático após confirmar email)
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if(event === 'SIGNED_IN' && session && !currentUser) {
+      await iniciarApp(session.user);
+    } else if(event === 'SIGNED_OUT') {
+      currentUser = null;
+      document.getElementById('app-screen').classList.remove('show');
+      document.getElementById('auth-screen').style.display='flex';
+    }
+  });
 });
 
 function showPage(id, el) {
